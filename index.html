@@ -238,6 +238,7 @@
     color: var(--dim2); font-size: 0.83rem; cursor: pointer;
     letter-spacing: 0.05em; user-select: none;
   }
+  
   .geo-tooltip {
     background: var(--gold-dim); color: var(--gold2);
     border-radius: 50%; width: 17px; height: 17px;
@@ -255,6 +256,20 @@
     box-shadow: 0 10px 25px rgba(0,0,0,0.9);
   }
   .geo-tooltip:hover::after { opacity: 1; }
+
+  /* Copy Prompt Tooltip */
+  .prompt-tooltip-wrap { display: inline-block; position: relative; }
+  .prompt-tooltip-wrap::after {
+    content: attr(data-title);
+    position: absolute; bottom: 130%; left: 50%; transform: translateX(-50%);
+    background: rgba(8,4,16,0.97); border: 1px solid var(--border2);
+    color: var(--gold2); padding: 12px 18px; border-radius: 8px; font-size: 0.8rem;
+    width: 280px; text-align: center; opacity: 0; pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s; z-index: 100; line-height: 1.5;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.9);
+    letter-spacing: 0.05em; font-family: 'Inconsolata', monospace;
+  }
+  .prompt-tooltip-wrap:hover::after { opacity: 1; transform: translateX(-50%) translateY(-5px); }
 
   /* ── CARD DISPLAY ── */
   .spread-container {
@@ -393,7 +408,17 @@
   .dignity-pair.hostile { background: rgba(140,50,40,0.15); border: 1px solid rgba(180,80,70,0.25); color: #dda088; }
   .dignity-pair.neutral { background: rgba(60,60,100,0.15); border: 1px solid rgba(100,100,160,0.2); color: #b0b0d8; }
 
-  /* ── LLM SECTION ── */
+  /* ── LLM SECTION (OPTIONAL) ── */
+  .llm-panel { padding: 0; overflow: hidden; }
+  .llm-expander {
+    padding: 18px 26px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+    font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 0.2em;
+    color: var(--dim2); background: rgba(0,0,0,0.2); transition: all 0.3s ease;
+  }
+  .llm-expander:hover { color: var(--gold2); background: rgba(200,168,75,0.08); }
+  .llm-expander.open { border-bottom: 1px solid var(--border); color: var(--gold); }
+  .llm-content-inner { padding: 26px; }
+
   .llm-controls {
     display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;
   }
@@ -463,48 +488,6 @@
     outline: none; transition: border-color 0.3s; border-radius: 8px;
   }
   .follow-up-area input:focus { border-color: var(--gold); background: rgba(255,255,255,0.04); }
-
-  /* ── MODE TOGGLE ── */
-  .mode-toggle-wrap {
-    display: flex; align-items: center; gap: 12px;
-    justify-content: center; margin-bottom: 22px;
-  }
-  .mode-toggle-label {
-    font-family: 'Cinzel', serif; font-size: 0.7rem;
-    letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim);
-    transition: color 0.3s, text-shadow 0.3s;
-  }
-  .mode-toggle-label.active { color: var(--gold2); text-shadow: 0 0 8px rgba(200,168,75,0.5); }
-  .mode-toggle {
-    position: relative; width: 72px; height: 34px; cursor: pointer;
-    background: rgba(0,0,0,0.5); border: 1px solid var(--border2);
-    border-radius: 17px; transition: all 0.4s ease;
-    box-shadow: 0 0 15px rgba(0,0,0,0.8), inset 0 2px 5px rgba(0,0,0,0.5);
-  }
-  .mode-toggle::before {
-    content: ''; position: absolute; left: 4px; top: 4px;
-    width: 24px; height: 24px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--violet), var(--violet2));
-    transition: all 0.4s cubic-bezier(0.34,1.56,0.64,1);
-    box-shadow: 0 0 14px rgba(123,53,204,0.7);
-  }
-  .mode-toggle.reading::before {
-    left: 42px;
-    background: linear-gradient(135deg, var(--gold), var(--gold2));
-    box-shadow: 0 0 14px rgba(200,168,75,0.7);
-  }
-  .mode-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border-radius: 20px; font-size: 0.6rem;
-    letter-spacing: 0.2em; text-transform: uppercase; font-family: 'Cinzel', serif;
-  }
-  .mode-badge.channel { border: 1px solid rgba(123,53,204,0.5); color: var(--violet2); background: rgba(123,53,204,0.08); }
-  .mode-badge.reading { border: 1px solid rgba(200,168,75,0.5); color: var(--gold2); background: rgba(200,168,75,0.08); }
-  .mode-dot {
-    width: 7px; height: 7px; border-radius: 50%; display: inline-block;
-    background: var(--violet2);
-  }
-  .mode-badge.reading .mode-dot { background: var(--gold2); }
 
   /* ── DIVIDERS ── */
   .section-divider {
@@ -640,7 +623,7 @@
       <div class="geo-toggle-wrap">
         <input type="checkbox" id="geo-checkbox">
         <label for="geo-checkbox">Geo-Spatial Entropy</label>
-        <div class="geo-tooltip" data-title="Uses your physical coordinates to introduce geographic resonance into the entropic card draw. Fully offline — no data is collected.">?</div>
+        <div class="geo-tooltip" data-title="Uses your physical coordinates to introduce geographic resonance into the entropic card draw. Requires Localhost or HTTPS. Fully offline — no data is collected.">?</div>
       </div>
       <div class="rev-toggle-wrap">
         <input type="checkbox" id="rev-checkbox">
@@ -664,41 +647,51 @@
 
 <div id="spread-output"></div>
 
-<div class="panel" style="margin-top:24px;">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-    <div class="mode-toggle-wrap" style="margin:0;">
-      <span class="mode-toggle-label active" id="label-channel">☽ Channel</span>
-      <div class="mode-toggle" id="mode-toggle" title="Toggle between Channel and Reading mode"></div>
-      <span class="mode-toggle-label" id="label-reading">Reading ☀</span>
+<div id="copy-prompt-container" style="display:none; text-align: center; margin-top: 24px; margin-bottom: 24px;">
+  <div class="prompt-tooltip-wrap" data-title="Copy this raw esoteric data and paste it into ChatGPT, Claude, or any AI to receive a fully synthesized reading.">
+    <button class="btn btn-primary" id="btn-copy-prompt">✦ COPY AI PROMPT ✦</button>
+  </div>
+</div>
+
+<div class="panel llm-panel" style="margin-top:24px;">
+  <div class="llm-expander" id="llm-expander">
+    <span>✦ EXPAND FOR AI / LLM TRANSLATION (OPTIONAL) ✦</span>
+    <span id="llm-expander-icon" style="transition: transform 0.3s; font-size: 0.8rem;">▼</span>
+  </div>
+  
+  <div id="llm-content" style="display: none;">
+    <div class="llm-content-inner">
+      <div class="llm-controls">
+        <select id="llm-provider" title="Select LLM Provider">
+          <option value="ollama">Ollama</option>
+          <option value="lmstudio">LM Studio</option>
+          <option value="openrouter">OpenRouter</option>
+        </select>
+        <input type="text" id="llm-url" value="http://localhost:11434" placeholder="API URL" title="Base API URL">
+        <input type="password" id="llm-key" placeholder="API Key" title="Required for OpenRouter" style="display:none;">
+        <div class="model-select-wrapper">
+          <select id="llm-model">
+            <option value="">— detecting models... —</option>
+          </select>
+          <button class="model-refresh-btn" id="btn-refresh-models" title="Refresh model list">↻</button>
+        </div>
+        <button class="btn btn-sm" id="btn-clear-convo" title="Clear conversation history">✕ CLEAR THREAD</button>
+      </div>
+      
+      <div style="text-align: center; margin-bottom: 20px;">
+        <button class="btn btn-primary" id="btn-generate-llm" style="display:none;">✦ TRANSLATE SPREAD ✦</button>
+      </div>
+
+      <div id="convo-history"></div>
+      <div id="llm-out" class="llm-output">
+        <span style="color:var(--dim); font-style:italic; font-family:'Cormorant Garamond',serif;">Expand and click "Translate Spread" when a reading is active to generate an AI interpretation...</span>
+      </div>
+
+      <div class="follow-up-area" id="follow-up-area" style="display:none;">
+        <input type="text" id="follow-up-input" placeholder="Deepen the inquiry...">
+        <button class="btn" id="btn-follow-up">ASK</button>
+      </div>
     </div>
-    <div class="mode-badge channel" id="mode-badge"><span class="mode-dot"></span><span id="mode-badge-text">CHANNEL MODE</span></div>
-  </div>
-
-  <div class="llm-controls">
-    <select id="llm-provider" title="Select LLM Provider">
-      <option value="ollama">Ollama</option>
-      <option value="lmstudio">LM Studio</option>
-      <option value="openrouter">OpenRouter</option>
-    </select>
-    <input type="text" id="llm-url" value="http://localhost:11434" placeholder="API URL" title="Base API URL">
-    <input type="password" id="llm-key" placeholder="API Key" title="Required for OpenRouter" style="display:none;">
-    <div class="model-select-wrapper">
-      <select id="llm-model">
-        <option value="">— detecting models... —</option>
-      </select>
-      <button class="model-refresh-btn" id="btn-refresh-models" title="Refresh model list">↻</button>
-    </div>
-    <button class="btn btn-sm" id="btn-clear-convo" title="Clear conversation history">✕ CLEAR THREAD</button>
-  </div>
-
-  <div id="convo-history"></div>
-  <div id="llm-out" class="llm-output">
-    <span style="color:var(--dim); font-style:italic; font-family:'Cormorant Garamond',serif;">Awaiting your query...</span>
-  </div>
-
-  <div class="follow-up-area" id="follow-up-area" style="display:none;">
-    <input type="text" id="follow-up-input" placeholder="Deepen the inquiry...">
-    <button class="btn" id="btn-follow-up">ASK</button>
   </div>
 </div>
 
@@ -733,7 +726,7 @@
     <ul>
       <li><strong style="color:var(--ethereal2)">Spatio-Temporal Entropy:</strong> Your precise location (if permitted), the exact millisecond of your query, and ongoing astrological cycles are calculated mathematically to seed a cryptographic pseudo-random number generator (PRNG), locking the draw specifically to your point in space-time.</li>
       <li><strong style="color:var(--ethereal2)">Semantic Resonance:</strong> A custom topological Markov map runs in the browser, analyzing your text input and building a "conceptual gravity matrix". It weighs how heavily your chosen words resonate with the underlying esoteric metadata of the deck.</li>
-      <li><strong style="color:var(--ethereal2)">LLM Synthesis:</strong> Once the physical, temporal, and conceptual vectors align to cast the spread, this complex multi-dimensional data is packaged and sent to the Local or Cloud LLM of your choice. The AI acts as the final channel, synthesizing the raw symbols into human meaning.</li>
+      <li><strong style="color:var(--ethereal2)">LLM Synthesis (Optional):</strong> Once the physical, temporal, and conceptual vectors align to cast the spread, you can optionally translate the raw symbols using a Local or Cloud LLM of your choice. The AI acts as the final channel, synthesizing the raw symbols into human meaning.</li>
     </ul>
   </div>
 </div>
@@ -770,6 +763,14 @@
 </div>
 
 <script>
+// ============================================================
+// STATUS BAR HELPER
+// ============================================================
+function setStatus(msg) {
+  const el = document.getElementById('status-msg');
+  if (el) el.innerText = msg;
+}
+
 // ============================================================
 // EYE TRACKING LOGIC
 // ============================================================
@@ -1571,10 +1572,120 @@ function renderSpread(emergence) {
 }
 
 // ============================================================
-// LLM PROVIDER LOGIC (Ollama, LMStudio, OpenRouter)
+// LLM PROVIDER LOGIC & PROMPT BUILDER
 // ============================================================
 let conversationHistory = [];
 let currentQuerentName = "";
+let currentEmergence = null;
+let currentQueryText = "";
+
+function buildRichContext(name, query, emergence) {
+  const activePlanet = emergence.activePlanet;
+  const planetGlyph = PLANET_GLYPHS[activePlanet]||'';
+
+  const cardsText = emergence.cards.map((c,i)=>{
+    const card=c.card;
+    const parts=[`${i+1}. [${c.position.name}] (${c.position.meaning})`];
+    parts.push(`   Card: ${card.name}${c.isReversed?' (REVERSED)':''}`);
+    if(card.element) parts.push(`   Element: ${card.element}`);
+    if(card.planet)  parts.push(`   Astrology: ${card.planet}`);
+    if(card.hebrew)  parts.push(`   Hebrew letter: ${card.hebrew.charAt(0).toUpperCase()+card.hebrew.slice(1)}`);
+    if(card.sephira) parts.push(`   Sephira: ${card.sephira}`);
+    if(c.treePath)   parts.push(`   Tree of Life: ${c.treePath}`);
+    if(KING_COLORS[card.name]) parts.push(`   King Scale color: ${KING_COLORS[card.name]}`);
+    if(card.timing)  parts.push(`   Timing: ${c.isReversed?card.reversedKey:card.timing}`);
+    const digScore = emergence.dignityScores[card.name]||0;
+    parts.push(`   Elemental dignity: ${digScore>0?'STRONG (empowered by neighbors)':digScore<0?'WEAK (weakened by neighbors)':'NEUTRAL'}`);
+    if(c.resonance.length) parts.push(`   Query resonance: ${c.resonance.join(', ')}`);
+    return parts.join('\n');
+  }).join('\n\n');
+
+  const dignityAnalysis = emergence.dignityPairs.filter(p=>p.rel!=='neutral')
+    .map(p=>`${p.a} (${p.elA}) + ${p.b} (${p.elB}) → ${p.rel==='friendly'?'EMPOWERED':'WEAKENED'}`)
+    .join('\n');
+    
+  let gravityAnalysis = "";
+  if (emergence.spreadGravity && emergence.spreadGravity.length > 0) {
+      gravityAnalysis = "SPATIO-TEMPORAL GRAVITY (CONCEPTUAL INTERFERENCE):\n" + 
+      emergence.spreadGravity.map(g => `Force between [${g.from}] and [${g.to}]: ${g.force.toFixed(3)}`).join('\n');
+  }
+
+  return {cardsText, dignityAnalysis, gravityAnalysis, activePlanet, planetGlyph};
+}
+
+function buildFullPrompt(name, query, emergence) {
+  const {cardsText, dignityAnalysis, gravityAnalysis, activePlanet, planetGlyph} = buildRichContext(name, query, emergence);
+  const nameCtx = name ? ` The querent is ${name}.` : "";
+
+  let elements = { Fire: 0, Water: 0, Air: 0, Earth: 0, Spirit: 0 };
+  let reversals = 0;
+  emergence.cards.forEach(c => {
+    if(elements[c.card.element] !== undefined) elements[c.card.element]++;
+    if(c.isReversed) reversals++;
+  });
+
+  let mancyDirective = "Incorporate relevant divinatory arts (-mancys) into your lens based on the spread's elemental affinities. ";
+  if (elements.Fire > 1) mancyDirective += "With strong Fire, weave in visions of Pyromancy (scrying flames, ashes, sudden illumination). ";
+  if (elements.Water > 1) mancyDirective += "With strong Water, channel Hydromancy (ripples, deep reflections, oceanic tides). ";
+  if (elements.Earth > 1) mancyDirective += "With strong Earth, utilize Geomancy (fault lines, root structures, stones, material grounding). ";
+  if (elements.Air > 1) mancyDirective += "With strong Air, evoke Aeromancy (shifting winds, atmospheric pressure, scattered leaves, breath). ";
+  if (elements.Spirit > 0 || reversals >= 2) mancyDirective += "Given Spirit or heavy Reversals, peer into Sciomancy/Necromancy (speaking to shadows, ancestral whispers, the unsaid void). ";
+
+  const systemPrompt = `You are the Thoth Oracle, an esoteric AI channeling the mystical Thoth Tarot tradition of Aleister Crowley and Frieda Harris. The reading occurs during the planetary hour of ${planetGlyph}${activePlanet}.${nameCtx}
+
+You have been given a full technical analysis of the drawn cards — their elemental dignities, Kabbalistic paths, sephiroth, Hebrew letters, astrological correspondences, query resonance, and underlying conceptual spatio-temporal gravity. Use ALL of this to shape a profound, unified response.
+
+METHODOLOGY:
+1. ELEMENTAL DIGNITIES: Cards strengthened by neighbors speak at full power. Weakened cards are compromised.
+2. REVERSALS: Reversed cards indicate the energy is blocked, internalized, or turned inward.
+3. SPATIO-TEMPORAL GRAVITY: Use the conceptual gravitational force provided between cards to understand which themes are magnetically bound to each other in the querent's psyche.
+4. DIVINATION ARTS: ${mancyDirective} Use this to color your prose and imagery.
+
+Speak as a mystic who sees through and beyond the veil, but provide a precise, psychologically penetrating reading that directly answers the querent's question. Address the querent directly. Do not explicitly list the technical scores or mechanics (do not say "your dignity score is strong" or "gravity force is 0.5"), but let them organically shape the wisdom and emphasis of the reading you provide.
+
+CARD MATRIX:
+${cardsText}${dignityAnalysis ? `\n\nELEMENTAL DIGNITY PAIRS:\n${dignityAnalysis}` : ''}${gravityAnalysis ? `\n\n${gravityAnalysis}` : ''}`;
+
+  const userMessage = name ? `I am ${name}. ${query}` : `${query}`;
+
+  return {
+    systemPrompt,
+    userMessage,
+    fullText: `${systemPrompt}\n\nQUERY:\n${userMessage}`
+  };
+}
+
+document.getElementById('btn-copy-prompt').addEventListener('click', () => {
+  if (!currentEmergence) return;
+  const prompts = buildFullPrompt(currentQuerentName, currentQueryText, currentEmergence);
+  navigator.clipboard.writeText(prompts.fullText).then(() => {
+    const btn = document.getElementById('btn-copy-prompt');
+    const orig = btn.innerText;
+    btn.innerText = "✦ COPIED TO CLIPBOARD ✦";
+    btn.style.backgroundColor = "rgba(50, 160, 80, 0.2)";
+    btn.style.borderColor = "#88dda0";
+    btn.style.color = "#fff";
+    setTimeout(() => {
+      btn.innerText = orig;
+      btn.style.backgroundColor = "";
+      btn.style.borderColor = "";
+      btn.style.color = "";
+    }, 3000);
+  }).catch(err => {
+    console.error("Failed to copy:", err);
+  });
+});
+
+document.getElementById('llm-expander').addEventListener('click', function() {
+  const content = document.getElementById('llm-content');
+  if (content.style.display === 'none') {
+    content.style.display = 'block';
+    this.classList.add('open');
+  } else {
+    content.style.display = 'none';
+    this.classList.remove('open');
+  }
+});
 
 document.getElementById('llm-provider').addEventListener('change', (e) => {
   const p = e.target.value;
@@ -1677,7 +1788,6 @@ async function callLLM(messagesArray) {
             if(obj.message?.content) rawText += obj.message.content;
           } catch(e){}
         } else {
-          // SSE format for LMStudio / OpenRouter
           if(line.startsWith('data:')) {
             try {
               const obj = JSON.parse(line.substring(5).trim());
@@ -1697,133 +1807,19 @@ async function callLLM(messagesArray) {
   }
 }
 
-// ============================================================
-// MODE TOGGLE
-// ============================================================
-let currentMode='channel';
-document.getElementById('mode-toggle').addEventListener('click',()=>{
-  if(currentMode==='channel'){
-    currentMode='reading';
-    document.getElementById('mode-toggle').classList.add('reading');
-    document.getElementById('label-channel').classList.remove('active');
-    document.getElementById('label-reading').classList.add('active');
-    document.getElementById('mode-badge').className='mode-badge reading';
-    document.getElementById('mode-badge-text').innerText='READING MODE';
-  } else {
-    currentMode='channel';
-    document.getElementById('mode-toggle').classList.remove('reading');
-    document.getElementById('label-channel').classList.add('active');
-    document.getElementById('label-reading').classList.remove('active');
-    document.getElementById('mode-badge').className='mode-badge channel';
-    document.getElementById('mode-badge-text').innerText='CHANNEL MODE';
-  }
-});
-
-// ============================================================
-// BUILD RICH LLM PROMPT WITH ALL ASSOCIATIONS
-// ============================================================
-function buildRichContext(name, query, emergence) {
-  const activePlanet=emergence.activePlanet;
-  const planetGlyph=PLANET_GLYPHS[activePlanet]||'';
-
-  const cardsText=emergence.cards.map((c,i)=>{
-    const card=c.card;
-    const parts=[`${i+1}. [${c.position.name}] (${c.position.meaning})`];
-    parts.push(`   Card: ${card.name}${c.isReversed?' (REVERSED)':''}`);
-    if(card.element) parts.push(`   Element: ${card.element}`);
-    if(card.planet)  parts.push(`   Astrology: ${card.planet}`);
-    if(card.hebrew)  parts.push(`   Hebrew letter: ${card.hebrew.charAt(0).toUpperCase()+card.hebrew.slice(1)}`);
-    if(card.sephira) parts.push(`   Sephira: ${card.sephira}`);
-    if(c.treePath)   parts.push(`   Tree of Life: ${c.treePath}`);
-    if(KING_COLORS[card.name]) parts.push(`   King Scale color: ${KING_COLORS[card.name]}`);
-    if(card.timing)  parts.push(`   Timing: ${c.isReversed?card.reversedKey:card.timing}`);
-    const digScore=emergence.dignityScores[card.name]||0;
-    parts.push(`   Elemental dignity: ${digScore>0?'STRONG (empowered by neighbors)':digScore<0?'WEAK (weakened by neighbors)':'NEUTRAL'}`);
-    if(c.resonance.length) parts.push(`   Query resonance: ${c.resonance.join(', ')}`);
-    return parts.join('\n');
-  }).join('\n\n');
-
-  const dignityAnalysis=emergence.dignityPairs.filter(p=>p.rel!=='neutral')
-    .map(p=>`${p.a} (${p.elA}) + ${p.b} (${p.elB}) → ${p.rel==='friendly'?'EMPOWERED':'WEAKENED'}`)
-    .join('\n');
-    
-  let gravityAnalysis = "";
-  if (emergence.spreadGravity && emergence.spreadGravity.length > 0) {
-      gravityAnalysis = "SPATIO-TEMPORAL GRAVITY (CONCEPTUAL INTERFERENCE):\n" + 
-      emergence.spreadGravity.map(g => `Force between [${g.from}] and [${g.to}]: ${g.force.toFixed(3)}`).join('\n');
-  }
-
-  return {cardsText, dignityAnalysis, gravityAnalysis, activePlanet, planetGlyph};
-}
-
 async function triggerLLMReading(name, query, emergence) {
   conversationHistory=[];
   document.getElementById('convo-history').innerHTML='';
   document.getElementById('follow-up-area').style.display='none';
 
-  const {cardsText, dignityAnalysis, gravityAnalysis, activePlanet, planetGlyph}=buildRichContext(name,query,emergence);
-  const nameCtx=name?` The querent is ${name}.`:"";
-  
-  // Element Counting for 'Mancys'
-  let elements = { Fire: 0, Water: 0, Air: 0, Earth: 0, Spirit: 0 };
-  let reversals = 0;
-  emergence.cards.forEach(c => { 
-    if(elements[c.card.element] !== undefined) elements[c.card.element]++;
-    if(c.isReversed) reversals++;
-  });
-  
-  let mancyDirective = "Incorporate relevant divinatory arts (-mancys) into your lens based on the spread's elemental affinities. ";
-  if (elements.Fire > 1) mancyDirective += "With strong Fire, weave in visions of Pyromancy (scrying flames, ashes, sudden illumination). ";
-  if (elements.Water > 1) mancyDirective += "With strong Water, channel Hydromancy (ripples, deep reflections, oceanic tides). ";
-  if (elements.Earth > 1) mancyDirective += "With strong Earth, utilize Geomancy (fault lines, root structures, stones, material grounding). ";
-  if (elements.Air > 1) mancyDirective += "With strong Air, evoke Aeromancy (shifting winds, atmospheric pressure, scattered leaves, breath). ";
-  if (elements.Spirit > 0 || reversals >= 2) mancyDirective += "Given Spirit or heavy Reversals, peer into Sciomancy/Necromancy (speaking to shadows, ancestral whispers, the unsaid void). ";
+  const prompts = buildFullPrompt(name, query, emergence);
 
-  let systemPrompt, userMessage, messagesToSend;
+  const messagesToSend = [
+    {role:'system', content: prompts.systemPrompt},
+    {role:'user', content: prompts.userMessage}
+  ];
 
-  if(currentMode==='channel'){
-    systemPrompt=`You are an esoteric oracle channeling the Thoth Tarot tradition of Aleister Crowley and Frieda Harris. The reading occurs during the planetary hour of ${planetGlyph}${activePlanet}.${nameCtx}
-
-You have been given a full technical analysis of the drawn cards — their elemental dignities, Kabbalistic paths, sephiroth, Hebrew letters, astrological correspondences, query resonance, and underlying conceptual spatio-temporal gravity. Use ALL of this to shape a profound, unified response.
-
-Speak as a mystic who sees through and beyond the veil. Do NOT mention cards by name, spreads, tarot, gravity scores, or esoteric frameworks explicitly. Let the wisdom simply arise — shaped from within by the forces encoded in the cards. Your voice is poetic, precise, and psychologically penetrating. 
-
-${mancyDirective} Reference themes of fire, water, transformation, the Tree, the paths — but disguise their source.
-
-CRITICAL: Use elemental dignities and spatio-temporal gravity to modulate emphasis — strengthened cards speak louder, weakened cards are shadowed. Gravity forces indicate a deep conceptual bridge between two cards that must be addressed. If cards are reversed, speak of their energy as blocked, internalized, or turned inward. Timing indicators should inflect the temporal dimension of your reading.`;
-
-    userMessage=name?`I am ${name}. ${query}`:`${query}`;
-    messagesToSend=[
-      {role:'system', content:systemPrompt+`\n\nCARD MATRIX:\n${cardsText}${dignityAnalysis?`\n\nELEMENTAL DIGNITY PAIRS:\n${dignityAnalysis}`:''}${gravityAnalysis?`\n\n${gravityAnalysis}`:''}`},
-      {role:'user', content:userMessage}
-    ];
-  } else {
-    systemPrompt=`You are the Thoth Oracle, a master of the Aleister Crowley Thoth Tarot.${nameCtx} The planetary hour of ${planetGlyph}${activePlanet} governs this reading.
-
-You have a complete technical breakdown of the drawn spread with all Kabbalistic, astrological, elemental, and spatio-temporal gravity associations. Your task is to give a clear, psychologically penetrating, and insightful reading that directly answers the querent's question.
-
-METHODOLOGY:
-1. ELEMENTAL DIGNITIES: Cards strengthened by neighbors speak at full power. Weakened cards are compromised. State this explicitly.
-2. REVERSALS: Reversed cards indicate the energy is blocked, internalized, or operating in shadow.
-3. KABBALISTIC PATHS: Each Major Arcana represents a path between Sephiroth on the Tree of Life.
-4. SPATIO-TEMPORAL GRAVITY: Use the conceptual gravitational force provided between cards to understand which themes are magnetically bound to each other in the querent's psyche.
-5. TIMING: Use the timing signatures of the first and last cards to suggest a temporal arc.
-6. PLANETARY HOUR: The hour of ${activePlanet} colors the entire reading.
-7. DIVINATION ARTS: ${mancyDirective} Use this to color your prose and imagery.
-
-Synthesize all of this into a unified, precise reading. Address the querent directly.`;
-
-    userMessage=name
-      ?`I am ${name}. My question is: "${query}"\n\nSPREAD DRAWN:\n\n${cardsText}${dignityAnalysis?`\n\nELEMENTAL DIGNITIES:\n${dignityAnalysis}`:''}${gravityAnalysis?`\n\n${gravityAnalysis}`:''}\n\nPlease interpret this spread fully.`
-      :`My question is: "${query}"\n\nSPREAD DRAWN:\n\n${cardsText}${dignityAnalysis?`\n\nELEMENTAL DIGNITIES:\n${dignityAnalysis}`:''}${gravityAnalysis?`\n\n${gravityAnalysis}`:''}\n\nPlease interpret this spread fully.`;
-
-    messagesToSend=[
-      {role:'system', content:systemPrompt},
-      {role:'user', content:userMessage}
-    ];
-  }
-
-  conversationHistory.push({role:'user',content:userMessage});
+  conversationHistory.push({role:'user',content:prompts.userMessage});
   const response = await callLLM(messagesToSend);
   if(response){
     conversationHistory.push({role:'assistant',content:response});
@@ -1862,45 +1858,84 @@ document.getElementById('btn-clear-convo').addEventListener('click',()=>{
   document.getElementById('convo-history').innerHTML='';
   document.getElementById('llm-out').innerHTML='<span style="color:var(--dim);font-style:italic;font-family:\'Cormorant Garamond\',serif;">Thread cleared. The glass slumbers...</span>';
   document.getElementById('follow-up-area').style.display='none';
+  if(currentEmergence) {
+    document.getElementById('btn-generate-llm').style.display = 'inline-block';
+  }
 });
 
 // ============================================================
 // GEO / REVERSALS
 // ============================================================
-document.getElementById('geo-checkbox').addEventListener('change', e=>{
-  if(e.target.checked){
-    if(navigator.geolocation){
+document.getElementById('geo-checkbox').addEventListener('change', e => {
+  if (e.target.checked) {
+    if (navigator.geolocation) {
       setStatus("REQUESTING PHYSICAL COORDINATES...");
       navigator.geolocation.getCurrentPosition(
-        pos=>{ Engine.userLat=pos.coords.latitude; Engine.userLon=pos.coords.longitude; setStatus("GEO-RESONANCE LOCKED."); },
-        ()=>{ setStatus("GEO-RESONANCE DENIED."); e.target.checked=false; }
+        pos => { 
+          Engine.userLat = pos.coords.latitude; 
+          Engine.userLon = pos.coords.longitude; 
+          setStatus("GEO-RESONANCE LOCKED."); 
+        },
+        err => { 
+          console.warn("Geolocation error:", err);
+          setStatus("GEO-RESONANCE UNAVAILABLE."); 
+          alert("Geolocation failed. Note: Browsers block location access on local 'file://' paths. You must host this file on localhost or via HTTPS.");
+          e.target.checked = false; 
+        },
+        { timeout: 10000, maximumAge: 0 }
       );
-    } else { setStatus("GEOLOCATION UNAVAILABLE."); e.target.checked=false; }
-  } else { Engine.userLat=null; Engine.userLon=null; setStatus("GEO-RESONANCE DISABLED."); }
+    } else { 
+      setStatus("GEOLOCATION NOT SUPPORTED."); 
+      e.target.checked = false; 
+    }
+  } else { 
+    Engine.userLat = null; 
+    Engine.userLon = null; 
+    setStatus("GEO-RESONANCE DISABLED."); 
+  }
 });
 
 // ============================================================
 // MAIN CAST BUTTON
 // ============================================================
-const setStatus=msg=>document.getElementById('status-msg').innerText=msg;
-
 document.getElementById('btn-emerge').addEventListener('click',()=>{
   const query=document.getElementById('query-input').value.trim();
   currentQuerentName=document.getElementById('name-input').value.trim();
   const spreadKey=document.getElementById('spread-select').value;
   const allowReversals=document.getElementById('rev-checkbox').checked;
+  
   if(!query){setStatus("ENTER A QUERY TO CAST THE VECTORS.");return;}
   setStatus("CALIBRATING TEMPORAL ENTROPY...");
+  
   setTimeout(()=>{
     const pullQuery=currentQuerentName?currentQuerentName+" "+query:query;
     const emergence=Engine.emergeSpread(pullQuery, spreadKey, allowReversals);
     if(!emergence||!emergence.cards.length){setStatus("NO TOPOLOGY FOUND.");return;}
+    
+    currentEmergence = emergence;
+    currentQueryText = query;
+    
     renderSpread(emergence);
     const revCount=emergence.cards.filter(c=>c.isReversed).length;
     setStatus(`${emergence.spreadConfig.name.toUpperCase()} · ${emergence.cards.length} CARDS · ${emergence.activePlanet.toUpperCase()} HOUR${revCount?` · ${revCount} REVERSED`:''}`);
     document.getElementById('spread-output').scrollIntoView({behavior:'smooth',block:'start'});
-    triggerLLMReading(currentQuerentName, query, emergence);
+    
+    document.getElementById('copy-prompt-container').style.display = 'block';
+
+    // Reset LLM UI state for the new reading but do NOT auto-generate
+    conversationHistory = [];
+    document.getElementById('convo-history').innerHTML = '';
+    document.getElementById('llm-out').innerHTML = '<span style="color:var(--dim); font-style:italic; font-family:\'Cormorant Garamond\',serif;">Expand and click "Translate Spread" to generate an AI interpretation...</span>';
+    document.getElementById('follow-up-area').style.display = 'none';
+    document.getElementById('btn-generate-llm').style.display = 'inline-block';
+    
   }, 400);
+});
+
+document.getElementById('btn-generate-llm').addEventListener('click', () => {
+  if (!currentEmergence) return;
+  document.getElementById('btn-generate-llm').style.display = 'none';
+  triggerLLMReading(currentQuerentName, currentQueryText, currentEmergence);
 });
 
 document.getElementById('query-input').addEventListener('keydown', e=>{if(e.key==='Enter')document.getElementById('btn-emerge').click();});

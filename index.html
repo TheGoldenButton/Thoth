@@ -8537,6 +8537,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let threeLoaded = false;
 let vrScene, vrCamera, vrRenderer, vrClock;
+let vrCameraGroup;
 let vrNodes = [], vrEdges = [];
 let vrActive = false;
 let vrXRSession = null;
@@ -8671,7 +8672,11 @@ function initVRScene() {
   vrScene.fog = new THREE.Fog(0x010108, 30, 350); // Linear fog creates a strong depth-of-field isolation
 
   vrCamera = new THREE.PerspectiveCamera(75, W / H, 0.1, 2000);
-  vrCamera.position.set(0, 25, 200);
+
+  vrCameraGroup = new THREE.Group();
+  vrCameraGroup.position.set(0, 25, 200);
+  vrCameraGroup.add(vrCamera);
+  vrScene.add(vrCameraGroup);
 
   vrClock = new THREE.Clock();
 
@@ -8883,7 +8888,6 @@ function buildWarpGeometry(THREE) {
   warpGeom = geo;
   // Attach to camera so it always appears around the viewer
   vrCamera.add(warpMesh);
-  vrScene.add(vrCamera);
 }
 
 // ── In-VR floating HUD panel (visible inside headset) ──
@@ -8945,11 +8949,11 @@ async function enterXR() {
   if (!vrRenderer) return;
   try {
     vrXRSession = await navigator.xr.requestSession('immersive-vr', {
-      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers']
+      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
     });
 
     // Use Three.js XR animation loop — this is the KEY for Quest compatibility
-    vrRenderer.xr.setSession(vrXRSession);
+    await vrRenderer.xr.setSession(vrXRSession);
     vrRenderer.setAnimationLoop(xrAnimationLoop);
 
     vrXRSession.addEventListener('end', onXRSessionEnd);
@@ -9003,8 +9007,8 @@ function setupXRControllers() {
 
   xrController0.add(xrRayLine0);
   xrController1.add(xrRayLine1);
-  vrScene.add(xrController0);
-  vrScene.add(xrController1);
+  vrCameraGroup.add(xrController0);
+  vrCameraGroup.add(xrController1);
 
   // Primary trigger = select a node / fly toward it
   xrController0.addEventListener('selectstart', () => handleXRTrigger(0));
@@ -9083,7 +9087,7 @@ function pollXRGamepads() {
   if (Math.abs(xrFlyVel.x) > 0.01 || Math.abs(xrFlyVel.z) > 0.01 || Math.abs(xrFlyVel.y) > 0.01) {
     const dir = new THREE.Vector3(xrFlyVel.x, xrFlyVel.y, xrFlyVel.z);
     dir.applyQuaternion(vrCamera.quaternion);
-    vrCamera.position.add(dir);
+    vrCameraGroup.position.add(dir);
   }
 }
 
@@ -9252,10 +9256,14 @@ function updateOrbitCamera() {
   const phi = Math.max(0.1, Math.min(Math.PI - 0.1, camOrbit.phi));
   const r = camOrbit.radius;
   const tx = camOrbit.target.x, ty = camOrbit.target.y, tz = camOrbit.target.z;
-  vrCamera.position.x = tx + r * Math.sin(phi) * Math.sin(camOrbit.theta);
-  vrCamera.position.y = ty + r * Math.cos(phi);
-  vrCamera.position.z = tz + r * Math.sin(phi) * Math.cos(camOrbit.theta);
-  vrCamera.lookAt(tx, ty, tz);
+  
+  vrCameraGroup.position.x = tx + r * Math.sin(phi) * Math.sin(camOrbit.theta);
+  vrCameraGroup.position.y = ty + r * Math.cos(phi);
+  vrCameraGroup.position.z = tz + r * Math.sin(phi) * Math.cos(camOrbit.theta);
+  vrCameraGroup.lookAt(tx, ty, tz);
+  
+  vrCamera.position.set(0, 0, 0);
+  vrCamera.quaternion.set(0, 0, 0, 1);
 }
 
 // ── Canvas controls (non-VR: drag/scroll/click) ──
@@ -9408,15 +9416,17 @@ function travelToNodeXR(idx) {
 
   if (targetBgColor) targetBgColor.setHex(n.color).multiplyScalar(0.04);
 
-  const startPos = vrCamera.position.clone();
-  const endPos = new THREE.Vector3(target.x, target.y, target.z + 60); // Stop further back so it's fully visible
+  const startPos = vrCameraGroup.position.clone();
+  const endPos = new THREE.Vector3(target.x, target.y, target.z + 60);
+  endPos.sub(vrCamera.position);
+
   const dur = 2200;
   const t0 = performance.now();
 
   function step() {
     const p = Math.min(1, (performance.now() - t0) / dur);
     const e = 1 - Math.pow(1 - p, 3);
-    vrCamera.position.lerpVectors(startPos, endPos, e);
+    vrCameraGroup.position.lerpVectors(startPos, endPos, e);
     if (p < 1) requestAnimationFrame(step);
     else { setTimeout(() => highlightNode(idx, false), 1500); }
   }

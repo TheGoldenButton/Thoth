@@ -8587,11 +8587,15 @@ let xrGamepads = [null, null]; // cached gamepad refs
 let xrFlyVel = { x: 0, y: 0, z: 0 };
 
 // ── Three.js loader ──
-function loadThree(cb) {
+function loadThree(cb, errcb) {
   if (threeLoaded) { cb(); return; }
   const s = document.createElement('script');
   s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
   s.onload = () => { threeLoaded = true; cb(); };
+  s.onerror = () => {
+    console.error('[VR] Failed to load Three.js from CDN');
+    if (errcb) errcb(new Error('Failed to load Three.js. Check your internet connection.'));
+  };
   document.head.appendChild(s);
 }
 
@@ -8932,9 +8936,10 @@ function checkXRSupport() {
   const btn = document.getElementById('vr-enter-xr-btn');
   if (!btn) return;
   btn.classList.remove('hidden');
+  btn.disabled = false;
   if (!navigator.xr) {
-    btn.textContent = 'No WebXR (HTTPS?)';
-    btn.onclick = () => alert('WebXR requires a secure context (HTTPS) or localhost.\n\nPlease access this site via HTTPS to enable VR.');
+    btn.textContent = '🥽 VR (no WebXR)';
+    btn.onclick = () => alert('WebXR requires a secure context (HTTPS) or a compatible VR browser.\n\nOn Quest: open this page in the Quest Browser.');
   } else {
     btn.textContent = '🥽 Enter VR';
     btn.onclick = enterXR;
@@ -9658,6 +9663,12 @@ function handleVRResize() {
 function openVRSpace() {
   document.getElementById('vr-space-overlay').classList.add('open');
   if (!vrRenderer) {
+    // Show a loading hint on the Enter VR button while Three.js downloads
+    const xrBtn = document.getElementById('vr-enter-xr-btn');
+    if (xrBtn && xrBtn.textContent === '🥽 Enter VR') {
+      xrBtn.textContent = '⏳ Loading…';
+      xrBtn.disabled = true;
+    }
     loadThree(() => {
       // slight delay so overlay is fully rendered
       requestAnimationFrame(() => {
@@ -9666,8 +9677,13 @@ function openVRSpace() {
         setupSpeechRecog();
         window.addEventListener('resize', handleVRResize);
         startDesktopRenderLoop();
-        // Space starts blank and still, ready for the user's queries to form the path
+        // checkXRSupport() (called inside initVRScene) will restore the button text
       });
+    }, (err) => {
+      // Three.js failed to load — restore button and show error
+      const xrBtn2 = document.getElementById('vr-enter-xr-btn');
+      if (xrBtn2) { xrBtn2.textContent = '🥽 Enter VR'; xrBtn2.disabled = false; xrBtn2.onclick = enterXR; }
+      alert('Could not load the 3D engine. Check your internet connection and try again.\n\n' + (err && err.message ? err.message : ''));
     });
   } else {
     vrActive = true;
@@ -9699,6 +9715,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (val) startJourney(val);
     }
   });
+
+  // Wire Enter VR button immediately — if the space isn't loaded yet,
+  // open it first (which loads Three.js), then enter XR once ready.
+  const xrBtn = document.getElementById('vr-enter-xr-btn');
+  if (xrBtn) {
+    xrBtn.onclick = () => {
+      if (!vrRenderer) {
+        // Space not open yet — open it, which loads Three.js;
+        // enterXR will be wired by checkXRSupport() once init completes.
+        openVRSpace();
+      } else {
+        enterXR();
+      }
+    };
+  }
 });
 
 })(); // end IIFE

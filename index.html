@@ -325,9 +325,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:#0d0d0d; font-family
   position:absolute; font-size:20px; cursor:grab; user-select:none; padding:2px;
   border-radius:50%; display:flex; align-items:center; justify-content:center;
   width:36px; height:36px; touch-action: none;
+  overflow: visible; z-index: 1;
 }
-.lex-emoji-node:hover { transform:scale(1.4); z-index:10; }
-.lex-emoji-node.selected { transform:scale(1.3); box-shadow:0 0 16px var(--gold-glow), 0 0 0 2px var(--gold); z-index:11; }
+.lex-emoji-node:hover { transform:scale(1.4); z-index:12; }
+.lex-emoji-node.selected { transform:scale(1.3); box-shadow:0 0 16px var(--gold-glow), 0 0 0 2px var(--gold); z-index:20; }
 .lex-emoji-node:active { cursor:grabbing; }
 
 #lex-sidebar {
@@ -5596,8 +5597,12 @@ function renderLexiconField() {
         nodeEl.style.left = `${emoji.lex_x - 22}px`;
         nodeEl.style.top = `${emoji.lex_y - 22}px`;
         nodeEl.addEventListener('mousedown', onLexNodeDragStart);
-        field.appendChild(nodeEl);
+        // Don't append selected yet — we'll append it last so it renders on top
+        if (selectedLexEmoji !== emoji) field.appendChild(nodeEl);
+        else field._selectedNodeEl = nodeEl;
     });
+    // Append selected node last so it always sits on top of all other nodes
+    if (field._selectedNodeEl) { field.appendChild(field._selectedNodeEl); delete field._selectedNodeEl; }
 }
 function updateLexiconNodeDOMPositions() {
     ALL_EMOJIS.forEach((e, i) => {
@@ -8537,7 +8542,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let threeLoaded = false;
 let vrScene, vrCamera, vrRenderer, vrClock;
-let vrCameraGroup;
 let vrNodes = [], vrEdges = [];
 let vrActive = false;
 let vrXRSession = null;
@@ -8672,11 +8676,7 @@ function initVRScene() {
   vrScene.fog = new THREE.Fog(0x010108, 30, 350); // Linear fog creates a strong depth-of-field isolation
 
   vrCamera = new THREE.PerspectiveCamera(75, W / H, 0.1, 2000);
-
-  vrCameraGroup = new THREE.Group();
-  vrCameraGroup.position.set(0, 25, 200);
-  vrCameraGroup.add(vrCamera);
-  vrScene.add(vrCameraGroup);
+  vrCamera.position.set(0, 25, 200);
 
   vrClock = new THREE.Clock();
 
@@ -8888,6 +8888,7 @@ function buildWarpGeometry(THREE) {
   warpGeom = geo;
   // Attach to camera so it always appears around the viewer
   vrCamera.add(warpMesh);
+  vrScene.add(vrCamera);
 }
 
 // ── In-VR floating HUD panel (visible inside headset) ──
@@ -8947,10 +8948,49 @@ async function enterXR() {
     return;
   }
   if (!vrRenderer) return;
+
+  const btn = document.getElementById('vr-enter-xr-btn');
+
+  // Prevent double-tap / re-entry while a session is live
+  if (vrXRSession) {
+    vrXRSession.end().catch(() => {});
+    return;
+  }
+
+  // Show loading state on button
+  if (btn) {
+    btn.textContent = '⏳ Starting…';
+    btn.disabled = true;
+  }
+
+  // Timeout guard: if requestSession never resolves within 8 s, restore button
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    console.warn('[VR] XR session request timed out');
+    if (btn) {
+      btn.textContent = '🥽 Enter VR';
+      btn.disabled = false;
+      btn.onclick = enterXR;
+    }
+  }, 8000);
+
   try {
+    // Check immersive-vr support first (required on some Quest builds)
+    const supported = await navigator.xr.isSessionSupported('immersive-vr').catch(() => false);
+    if (!supported) {
+      clearTimeout(timeoutId);
+      if (btn) { btn.textContent = '🥽 Enter VR'; btn.disabled = false; btn.onclick = enterXR; }
+      alert('Immersive VR is not supported in this browser/device. Try the Quest Browser or enable WebXR in browser settings.');
+      return;
+    }
+
     vrXRSession = await navigator.xr.requestSession('immersive-vr', {
-      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+      optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers']
     });
+
+    clearTimeout(timeoutId);
+    if (timedOut) { vrXRSession.end().catch(() => {}); vrXRSession = null; return; }
 
     // Use Three.js XR animation loop — this is the KEY for Quest compatibility
     await vrRenderer.xr.setSession(vrXRSession);
@@ -8958,16 +8998,26 @@ async function enterXR() {
 
     vrXRSession.addEventListener('end', onXRSessionEnd);
 
-    const btn = document.getElementById('vr-enter-xr-btn');
     if (btn) {
       btn.textContent = '🥽 Exit VR';
-      btn.onclick = () => { if (vrXRSession) vrXRSession.end(); };
+      btn.disabled = false;
+      btn.onclick = () => { if (vrXRSession) vrXRSession.end().catch(() => {}); };
     }
 
     setupXRControllers();
   } catch(e) {
+    clearTimeout(timeoutId);
     console.warn('[VR] XR session failed:', e);
-    alert('VR session failed: ' + e.message + '\nMake sure you are in the Quest browser with WebXR enabled.');
+    vrXRSession = null;
+    if (btn) {
+      btn.textContent = '🥽 Enter VR';
+      btn.disabled = false;
+      btn.onclick = enterXR;
+    }
+    // Only alert if it's not a user-abort (they cancelled the headset prompt)
+    if (e && e.name !== 'NotAllowedError') {
+      alert('VR session failed: ' + (e.message || e) + '\nMake sure you are in the Quest browser with WebXR enabled.');
+    }
   }
 }
 
@@ -8977,7 +9027,7 @@ function onXRSessionEnd() {
   // Resume rAF loop for desktop
   startDesktopRenderLoop();
   const btn = document.getElementById('vr-enter-xr-btn');
-  if (btn) { btn.textContent = '🥽 Enter VR'; btn.onclick = enterXR; }
+  if (btn) { btn.textContent = '🥽 Enter VR'; btn.disabled = false; btn.onclick = enterXR; }
 }
 
 // ── XR controllers: ray beams + gamepad polling ──
@@ -9007,8 +9057,8 @@ function setupXRControllers() {
 
   xrController0.add(xrRayLine0);
   xrController1.add(xrRayLine1);
-  vrCameraGroup.add(xrController0);
-  vrCameraGroup.add(xrController1);
+  vrScene.add(xrController0);
+  vrScene.add(xrController1);
 
   // Primary trigger = select a node / fly toward it
   xrController0.addEventListener('selectstart', () => handleXRTrigger(0));
@@ -9087,7 +9137,7 @@ function pollXRGamepads() {
   if (Math.abs(xrFlyVel.x) > 0.01 || Math.abs(xrFlyVel.z) > 0.01 || Math.abs(xrFlyVel.y) > 0.01) {
     const dir = new THREE.Vector3(xrFlyVel.x, xrFlyVel.y, xrFlyVel.z);
     dir.applyQuaternion(vrCamera.quaternion);
-    vrCameraGroup.position.add(dir);
+    vrCamera.position.add(dir);
   }
 }
 
@@ -9256,14 +9306,10 @@ function updateOrbitCamera() {
   const phi = Math.max(0.1, Math.min(Math.PI - 0.1, camOrbit.phi));
   const r = camOrbit.radius;
   const tx = camOrbit.target.x, ty = camOrbit.target.y, tz = camOrbit.target.z;
-  
-  vrCameraGroup.position.x = tx + r * Math.sin(phi) * Math.sin(camOrbit.theta);
-  vrCameraGroup.position.y = ty + r * Math.cos(phi);
-  vrCameraGroup.position.z = tz + r * Math.sin(phi) * Math.cos(camOrbit.theta);
-  vrCameraGroup.lookAt(tx, ty, tz);
-  
-  vrCamera.position.set(0, 0, 0);
-  vrCamera.quaternion.set(0, 0, 0, 1);
+  vrCamera.position.x = tx + r * Math.sin(phi) * Math.sin(camOrbit.theta);
+  vrCamera.position.y = ty + r * Math.cos(phi);
+  vrCamera.position.z = tz + r * Math.sin(phi) * Math.cos(camOrbit.theta);
+  vrCamera.lookAt(tx, ty, tz);
 }
 
 // ── Canvas controls (non-VR: drag/scroll/click) ──
@@ -9416,17 +9462,15 @@ function travelToNodeXR(idx) {
 
   if (targetBgColor) targetBgColor.setHex(n.color).multiplyScalar(0.04);
 
-  const startPos = vrCameraGroup.position.clone();
-  const endPos = new THREE.Vector3(target.x, target.y, target.z + 60);
-  endPos.sub(vrCamera.position);
-
+  const startPos = vrCamera.position.clone();
+  const endPos = new THREE.Vector3(target.x, target.y, target.z + 60); // Stop further back so it's fully visible
   const dur = 2200;
   const t0 = performance.now();
 
   function step() {
     const p = Math.min(1, (performance.now() - t0) / dur);
     const e = 1 - Math.pow(1 - p, 3);
-    vrCameraGroup.position.lerpVectors(startPos, endPos, e);
+    vrCamera.position.lerpVectors(startPos, endPos, e);
     if (p < 1) requestAnimationFrame(step);
     else { setTimeout(() => highlightNode(idx, false), 1500); }
   }

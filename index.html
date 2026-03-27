@@ -8926,14 +8926,23 @@ function buildGazeReticle(THREE) {
 function checkXRSupport() {
   const btn = document.getElementById('vr-enter-xr-btn');
   if (!btn) return;
-  // Force button to remain visible and clickable so VR can be attempted even if session checks fail prematurely
   btn.classList.remove('hidden');
-  btn.onclick = enterXR;
+  if (!navigator.xr) {
+    btn.textContent = 'No WebXR (HTTPS?)';
+    btn.onclick = () => alert('WebXR requires a secure context (HTTPS) or localhost.\n\nPlease access this site via HTTPS to enable VR.');
+  } else {
+    btn.textContent = '🥽 Enter VR';
+    btn.onclick = enterXR;
+  }
 }
 
 // ── Enter XR session (Meta Quest) ──
 async function enterXR() {
-  if (!vrRenderer || !navigator.xr) return;
+  if (!navigator.xr) {
+    alert('WebXR requires a secure context (HTTPS). Please ensure you are not using plain HTTP.');
+    return;
+  }
+  if (!vrRenderer) return;
   try {
     vrXRSession = await navigator.xr.requestSession('immersive-vr', {
       optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers']
@@ -8946,12 +8955,15 @@ async function enterXR() {
     vrXRSession.addEventListener('end', onXRSessionEnd);
 
     const btn = document.getElementById('vr-enter-xr-btn');
-    if (btn) { btn.textContent = '🥽 In VR'; btn.onclick = null; }
+    if (btn) {
+      btn.textContent = '🥽 Exit VR';
+      btn.onclick = () => { if (vrXRSession) vrXRSession.end(); };
+    }
 
     setupXRControllers();
   } catch(e) {
     console.warn('[VR] XR session failed:', e);
-    alert('VR session failed. Make sure you are in the Quest browser with WebXR enabled.');
+    alert('VR session failed: ' + e.message + '\nMake sure you are in the Quest browser with WebXR enabled.');
   }
 }
 

@@ -3774,6 +3774,46 @@ function getBrainConfig() {
     orKey: document.getElementById('brain-or-key')?.value?.trim() || ''
   };
 }
+function wrapEmojisInOutput(el) {
+  const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+  const nodes = [];
+  let n;
+  while ((n = walk.nextNode())) nodes.push(n);
+  nodes.forEach(node => {
+    let text = node.nodeValue;
+    let replaced = false;
+    const fragment = document.createDocumentFragment();
+    let lastIdx = 0;
+    const emojiRegex = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
+    let match;
+    while ((match = emojiRegex.exec(text)) !== null) {
+      const em = match[0];
+      const entry = ALL_EMOJIS.find(e => e.em === em);
+      if (entry) {
+        replaced = true;
+        if (match.index > lastIdx) {
+          fragment.appendChild(document.createTextNode(text.slice(lastIdx, match.index)));
+        }
+        const span = document.createElement('span');
+        span.className = 'ai-em';
+        span.textContent = em;
+        span.dataset.name = entry.name;
+        span.dataset.words = entry.words.slice(0,6).join(', ');
+        span.style.cursor = 'help';
+        span.style.display = 'inline-block';
+        span.style.transition = 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), text-shadow 0.2s ease';
+        fragment.appendChild(span);
+        lastIdx = emojiRegex.lastIndex;
+      }
+    }
+    if (replaced) {
+      if (lastIdx < text.length) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIdx)));
+      }
+      node.parentNode.replaceChild(fragment, node);
+    }
+  });
+}
 async function streamLLM(results, outputEl, query, bridgeWordsByGap, queryVec) {
   const { provider, model, prompt, orKey } = getBrainConfig();
   if (provider === 'none' || !model) return;
@@ -3834,6 +3874,7 @@ async function streamLLM(results, outputEl, query, bridgeWordsByGap, queryVec) {
           }
           if (json.done === true || json.choices?.[0]?.finish_reason) {
             cursor.remove();
+            wrapEmojisInOutput(outputEl);
             return true;
           }
         } catch(_) {}
@@ -8797,27 +8838,8 @@ function buildConnectionLines(THREE) {
   if (vrLineMesh) { vrScene.remove(vrLineMesh); vrLineMesh = null; }
   const emojis = getEmojiData();
   const positions = vrNodes.map(n => n.pos);
-  const edges = buildEdges(emojis, positions);
-  vrEdges = edges;
-
-  const verts = [];
-  const colors = [];
-  edges.forEach(([a, b, dist]) => {
-    const pa = positions[a], pb = positions[b];
-    const ca = colorForEmoji(emojis[a]);
-    const cb = colorForEmoji(emojis[b]);
-    const r1 = ((ca >> 16) & 0xff) / 255, g1 = ((ca >> 8) & 0xff) / 255, b1 = (ca & 0xff) / 255;
-    const r2 = ((cb >> 16) & 0xff) / 255, g2 = ((cb >> 8) & 0xff) / 255, b2 = (cb & 0xff) / 255;
-    verts.push(pa.x, pa.y, pa.z, pb.x, pb.y, pb.z);
-    colors.push(r1, g1, b1, r2, g2, b2);
-  });
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
-  geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
-  const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.015 }); // Almost invisible, lets active journey pop
-  vrLineMesh = new THREE.LineSegments(geo, mat);
-  vrScene.add(vrLineMesh);
+  vrEdges = buildEdges(emojis, positions);
+  // Lines removed per user request to declutter symbolic space
 }
 
 // ── Ambient gold particle field ──
@@ -8904,14 +8926,9 @@ function buildGazeReticle(THREE) {
 function checkXRSupport() {
   const btn = document.getElementById('vr-enter-xr-btn');
   if (!btn) return;
-  if (navigator.xr) {
-    navigator.xr.isSessionSupported('immersive-vr').then(ok => {
-      if (ok) { btn.classList.remove('hidden'); btn.onclick = enterXR; }
-      else btn.classList.add('hidden');
-    }).catch(() => btn.classList.add('hidden'));
-  } else {
-    btn.classList.add('hidden');
-  }
+  // Force button to remain visible and clickable so VR can be attempted even if session checks fail prematurely
+  btn.classList.remove('hidden');
+  btn.onclick = enterXR;
 }
 
 // ── Enter XR session (Meta Quest) ──
@@ -9189,7 +9206,11 @@ function animateScene(t, dt) {
     
     if (camPos) {
       const dist = camPos.distanceTo(n.sprite.position);
-      if (dist > 100) {
+      if (dist < 25) {
+        n.sprite.material.opacity = 0.05;
+      } else if (dist < 45) {
+        n.sprite.material.opacity = 0.05 + 0.95 * ((dist - 25) / 20);
+      } else if (dist > 100) {
         n.sprite.material.opacity = Math.max(0.02, 1.0 - (dist - 100) / 200);
       } else {
         n.sprite.material.opacity = 1.0;
@@ -9376,7 +9397,7 @@ function travelToNodeXR(idx) {
   if (targetBgColor) targetBgColor.setHex(n.color).multiplyScalar(0.04);
 
   const startPos = vrCamera.position.clone();
-  const endPos = new THREE.Vector3(target.x, target.y, target.z + 40); // Stop further back
+  const endPos = new THREE.Vector3(target.x, target.y, target.z + 60); // Stop further back so it's fully visible
   const dur = 2200;
   const t0 = performance.now();
 
